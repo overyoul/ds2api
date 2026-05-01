@@ -1,5 +1,8 @@
 FROM node:24 AS webui-builder
 
+# 设置 npm 国内镜像
+RUN npm config set registry https://registry.npmmirror.com
+
 WORKDIR /app/webui
 COPY webui/package.json webui/package-lock.json ./
 RUN npm ci
@@ -8,6 +11,11 @@ COPY webui ./
 RUN npm run build
 
 FROM golang:1.26 AS go-builder
+
+# 设置 go 模块代理
+ENV GOPROXY=https://goproxy.cn,direct
+ENV GOSUMDB=sum.golang.google.cn
+
 WORKDIR /app
 ARG TARGETOS
 ARG TARGETARCH
@@ -25,6 +33,11 @@ RUN set -eux; \
 FROM busybox:1.36.1-musl AS busybox-tools
 
 FROM debian:bookworm-slim AS runtime-base
+
+# 替换为国内镜像源（清华大学镜像）
+RUN sed -i 's/deb.debian.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apt/sources.list.d/debian.sources 2>/dev/null || \
+    sed -i 's|http://deb.debian.org|http://mirrors.tuna.tsinghua.edu.cn|g' /etc/apt/sources.list
+
 WORKDIR /app
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates \
